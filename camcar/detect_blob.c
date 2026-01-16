@@ -424,7 +424,7 @@ int next_row_hook(void* user_struct, struct stream_state* stream)
              //BLOB_MATCH(opt->ref[2], pixel[2])
 
              // Alternative: a specific test that seems to work for color RED indoors:
-             pixel[0] >= 100 && pixel[1] <= 80 && pixel[2] <= 80
+             pixel[0] >= 80 && pixel[1] <= 100 && pixel[2] <= 100
             )
             stream->row[x] = 255;
         else

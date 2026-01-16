@@ -115,7 +115,7 @@ void camcar(int argc, char *argv[], struct thread_dat *ptdat)
 
             // writeImageWithBlobAsJPEG() seems to have a bug, do not use right now:
             // writeImageWithBlobAsJPEG(blob, "test_blob.jpg", 70);  // this function is for testing (deactivate if not needed)
-            blobSufficient = (blob.size > 20);  // TODO: experiment with that threshold value
+            blobSufficient = (blob.size > 50);  // TODO: experiment with that threshold value
 
             // FSM-SB (Search Blob)
             if ( ! blobSufficient ) {
@@ -130,24 +130,22 @@ void camcar(int argc, char *argv[], struct thread_dat *ptdat)
                     blobnr = shared_blobnr;
                 }
             } else {
-                carBlobAligned = (blob.halign >= -0.15 && blob.halign <= 0.15);  // TODO: adjust values to useful ones
+                carBlobAligned = (blob.halign >= -0.10 && blob.halign <= 0.10);  // TODO: adjust values to useful ones
 
                 // FSM-AB (Align to Blob)
                 if ( ! carBlobAligned) {
                     mvprintw(3, 1,"State AB (align towards blob), blob.size=%d, halign=%f", blob.size, blob.halign);
                     clrtoeol(); // curses library
-                    if (blobnr < shared_blobnr) {
-                       // CW2 requirement: only allow spinning for a limited time *per new camera frame*.
-                       // If there is no new image yet, do not keep spinning.
-                       if (blob.halign < 0) {
-                           initio_SpinRight(SPEED_SPIN);
-                       } else {
-                           initio_SpinLeft(SPEED_SPIN);
-                       }
-                       usleep(SPIN_BURST_MS * 1000);
-                       initio_DriveForward(0);
-                       blobnr = shared_blobnr;
+                    // CW2 requirement: only allow spinning for a limited time *per new camera frame*.
+                    // If there is no new image yet, do not keep spinning.
+                    if (blob.halign < -0.05) {
+                        initio_SpinRight(SPEED_SPIN);
+                    } else if (blob.halign > 0.05) {
+                        initio_SpinLeft(SPEED_SPIN);
                     }
+                    usleep(SPIN_BURST_MS * 1000);
+                    initio_DriveForward(0);
+                    blobnr = shared_blobnr;
                 } else {
                     distance = initio_UsGetDistance ();
                     if (distance < DIST_MIN)      { distanceState = tooclose; }
