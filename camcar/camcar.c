@@ -130,50 +130,55 @@ void camcar(int argc, char *argv[], struct thread_dat *ptdat)
                     blobnr = shared_blobnr;
                 }
             } else {
-                carBlobAligned = (blob.halign >= -0.10 && blob.halign <= 0.10);  // TODO: adjust values to useful ones
+                // Blob found and sufficient size - now chase it!
+                distance = initio_UsGetDistance ();
+                if (distance < DIST_MIN)      { distanceState = tooclose; }
+                else if (distance > DIST_MAX) { distanceState = toofar; }
+                else                          { distanceState = distok; }
 
-                // FSM-AB (Align to Blob)
-                if ( ! carBlobAligned) {
-                    mvprintw(3, 1,"State AB (align towards blob), blob.size=%d, halign=%f", blob.size, blob.halign);
+                // Calculate steering speeds based on blob horizontal alignment
+                // halign ranges from -1.0 (far left) to +1.0 (far right), 0.0 is centered
+                int leftSpeed = SPEED_FWD;
+                int rightSpeed = SPEED_FWD;
+                
+                // Adjust motor speeds for steering (differential drive)
+                // Left turn: reduce left motor speed
+                if (blob.halign < -0.1) {
+                    leftSpeed = (int)(SPEED_FWD * 0.4);
+                    rightSpeed = SPEED_FWD;
+                } 
+                // Right turn: reduce right motor speed
+                else if (blob.halign > 0.1) {
+                    leftSpeed = SPEED_FWD;
+                    rightSpeed = (int)(SPEED_FWD * 0.4);
+                }
+
+                // FSM-MB (Chase blob, keep distance)
+                switch (distanceState) {
+                case toofar:
+                    mvprintw(3, 1,"State FB (chase blob forward), dist=%d, halign=%f", distance, blob.halign);
                     clrtoeol(); // curses library
-                    // CW2 requirement: only allow spinning for a limited time *per new camera frame*.
-                    // If there is no new image yet, do not keep spinning.
-                    if (blob.halign < -0.05) {
-                        initio_SpinRight(SPEED_SPIN);
-                    } else if (blob.halign > 0.05) {
-                        initio_SpinLeft(SPEED_SPIN);
-                    }
-                    usleep(SPIN_BURST_MS * 1000);
+                    initio_TurnForward(leftSpeed, rightSpeed);
+                    usleep(100 * 1000);
                     initio_DriveForward(0);
-                    blobnr = shared_blobnr;
-                } else {
-                    distance = initio_UsGetDistance ();
-                    if (distance < DIST_MIN)      { distanceState = tooclose; }
-                    else if (distance > DIST_MAX) { distanceState = toofar; }
-                    else                          { distanceState = distok; }
- 
-                    // FSM-MB (cat at middle of blob, keep distance)
-                    switch (distanceState) {
-                    case toofar:
-                        mvprintw(3, 1,"State FB (drive forward), dist=%d", distance);
-                        clrtoeol(); // curses library
-                        initio_DriveForward(SPEED_FWD);
-                        usleep(80 * 1000);
-                        initio_DriveForward(0);
-                        break;
-                    case tooclose:
-                        mvprintw(3, 1,"State RB (drive backwards), dist=%d", distance);
-                        clrtoeol(); // curses library
-                        initio_DriveReverse(SPEED_REV);
-                        usleep(80 * 1000);
-                        initio_DriveForward(0);
-                        break;
-                    case distok:
-                        mvprintw(3, 1,"State KD (keep distance), dist=%d", distance);
-                        clrtoeol(); // curses library
-                        initio_DriveForward (0); // Stop
-                    } // switch (FSM-MB)
-                } // if (FSM-AB)
+                    break;
+                case tooclose:
+                    mvprintw(3, 1,"State RB (back away from blob), dist=%d, halign=%f", distance, blob.halign);
+                    clrtoeol(); // curses library
+                    initio_TurnReverse(leftSpeed, rightSpeed);
+                    usleep(100 * 1000);
+                    initio_DriveForward(0);
+                    break;
+                case distok:
+                    mvprintw(3, 1,"State KD (keep distance), dist=%d, halign=%f", distance, blob.halign);
+                    clrtoeol(); // curses library
+                    // At perfect distance, only steer if blob is misaligned
+                    if (blob.halign < -0.05 || blob.halign > 0.05) {
+                        initio_TurnForward(leftSpeed, rightSpeed);
+                        usleep(50 * 1000);
+                    }
+                    initio_DriveForward(0); // Stop
+                } // switch (FSM-MB)
             } // if (FSM-SB)
         } // if (FSM-OA)
 
